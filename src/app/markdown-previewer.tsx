@@ -134,7 +134,7 @@ export default function MarkdownPreviewer({
           onKeyDown={handleKeyDown}
           spellCheck={false}
           aria-label="Markdown editor"
-          className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-6 outline-none"
+          className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-base leading-6 outline-none md:text-sm"
         />
       </section>
 

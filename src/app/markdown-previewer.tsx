@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 
 const INITIAL_MARKDOWN = `# Hello, Markdown
 
-Type on the left. The preview on the right updates as you type.
+Type here. The preview updates as you type.
 
 ## Things you can try
 

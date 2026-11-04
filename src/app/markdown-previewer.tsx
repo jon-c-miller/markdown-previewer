@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 
 const INITIAL_MARKDOWN = `# Hello, Markdown
@@ -51,7 +52,12 @@ export default function MarkdownPreviewer() {
         </h2>
         <div className="min-h-0 flex-1 overflow-auto p-4">
           <article className="prose prose-zinc max-w-none dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+            >
+              {markdown}
+            </ReactMarkdown>
           </article>
         </div>
       </section>

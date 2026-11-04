@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 
-const LIST_MARKER = /^(\s*)([-*+]|\d+[.)])\s+(\[[ xX]\])?\s*/;
+const LIST_MARKER = /^(\s*)([-*+]|\d+[.)])(?:\s+|$)(\[[ xX]\])?\s*/;
 
 const INITIAL_MARKDOWN = `# Hello, Markdown
 

@@ -143,7 +143,7 @@ export default function MarkdownPreviewer({
           Preview
         </h2>
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          <article className="prose prose-zinc max-w-none dark:prose-invert">
+          <article className="prose prose-zinc max-w-none [&_.task-list-item]:list-none dark:prose-invert">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
+
+const LIST_MARKER = /^(\s*)([-*+]|\d+[.)])\s+(\[[ xX]\])?\s*/;
 
 const INITIAL_MARKDOWN = `# Hello, Markdown
 
@@ -28,8 +30,96 @@ const greet = (name: string) => \`Hello, \${name}\`;
 \`\`\`
 `;
 
-export default function MarkdownPreviewer() {
+type MarkdownPreviewerProps = {
+  autoSeparateLists?: boolean;
+};
+
+export default function MarkdownPreviewer({
+  autoSeparateLists = true,
+}: MarkdownPreviewerProps) {
   const [markdown, setMarkdown] = useState(INITIAL_MARKDOWN);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCursor = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (pendingCursor.current === null || !textareaRef.current) return;
+    textareaRef.current.selectionStart = textareaRef.current.selectionEnd =
+      pendingCursor.current;
+    pendingCursor.current = null;
+  }, [markdown]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter") return;
+
+    const textarea = e.currentTarget;
+    const { selectionStart, selectionEnd, value } = textarea;
+    if (selectionStart !== selectionEnd) return;
+
+    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+    const line = value.slice(lineStart, selectionStart);
+    const match = line.match(LIST_MARKER);
+    if (!match) return;
+
+    const [fullMatch, indent, marker, checkbox] = match;
+    const restOfLine = line.slice(fullMatch.length);
+
+    e.preventDefault();
+
+    if (restOfLine.trim() === "") {
+      const newValue = value.slice(0, lineStart) + value.slice(selectionStart);
+      setMarkdown(newValue);
+      pendingCursor.current = lineStart;
+      return;
+    }
+
+    const nextMarker = /^\d+[.)]$/.test(marker)
+      ? `${parseInt(marker, 10) + 1}${marker.endsWith(")") ? ")" : "."}`
+      : marker;
+    const insertion = `\n${indent}${nextMarker} ${checkbox ? "[ ] " : ""}`;
+
+    const newValue =
+      value.slice(0, selectionStart) + insertion + value.slice(selectionEnd);
+    setMarkdown(newValue);
+    pendingCursor.current = selectionStart + insertion.length;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { value, selectionStart } = e.target;
+
+    if (!autoSeparateLists) {
+      setMarkdown(value);
+      return;
+    }
+
+    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+    const lineEndIndex = value.indexOf("\n", selectionStart);
+    const currentLine = value.slice(
+      lineStart,
+      lineEndIndex === -1 ? value.length : lineEndIndex,
+    );
+
+    if (lineStart === 0 || currentLine.trim() === "" || LIST_MARKER.test(currentLine)) {
+      setMarkdown(value);
+      return;
+    }
+
+    const prevLineEnd = lineStart - 1;
+    const prevLineStart = value.lastIndexOf("\n", prevLineEnd - 1) + 1;
+    const prevLine = value.slice(prevLineStart, prevLineEnd);
+
+    if (prevLine.trim() === "" || !LIST_MARKER.test(prevLine)) {
+      setMarkdown(value);
+      return;
+    }
+
+    // A plain line typed directly below a list item, with no blank line
+    // between them, is CommonMark's "lazy continuation": it renders as
+    // part of the previous bullet instead of a new paragraph. Insert the
+    // blank line so it renders as its own paragraph instead.
+    const newValue = value.slice(0, lineStart) + "\n" + value.slice(lineStart);
+    pendingCursor.current = selectionStart + 1;
+    setMarkdown(newValue);
+  };
 
   return (
     <div className="grid min-h-0 flex-1 grid-rows-2 divide-y divide-zinc-200 md:grid-cols-2 md:grid-rows-1 md:divide-x md:divide-y-0 dark:divide-zinc-800">
@@ -38,8 +128,10 @@ export default function MarkdownPreviewer() {
           Markdown
         </h2>
         <textarea
+          ref={textareaRef}
           value={markdown}
-          onChange={(e) => setMarkdown(e.target.value)}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
           spellCheck={false}
           aria-label="Markdown editor"
           className="min-h-0 flex-1 resize-none bg-transparent p-4 font-mono text-sm leading-6 outline-none"

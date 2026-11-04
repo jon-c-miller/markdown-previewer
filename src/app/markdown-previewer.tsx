@@ -123,7 +123,7 @@ export default function MarkdownPreviewer({
 
   return (
     <div className="grid min-h-0 flex-1 grid-rows-2 divide-y divide-zinc-200 md:grid-cols-2 md:grid-rows-1 md:divide-x md:divide-y-0 dark:divide-zinc-800">
-      <section className="flex min-h-0 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-col">
         <h2 className="border-b border-zinc-200 px-4 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
           Markdown
         </h2>
@@ -138,7 +138,7 @@ export default function MarkdownPreviewer({
         />
       </section>
 
-      <section className="flex min-h-0 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-col">
         <h2 className="border-b border-zinc-200 px-4 py-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
           Preview
         </h2>

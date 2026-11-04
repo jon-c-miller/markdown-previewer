@@ -1,11 +1,93 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import {
+  createContext,
+  createElement,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 
 const LIST_MARKER = /^(\s*)([-*+]|\d+[.)])\s+(\[[ xX]\])?\s*/;
+
+// Matches the preview's own paragraph line-height (prose's line-height:
+// 1.75, unitless, times its 1rem font-size), so one blank line in the
+// source reads as exactly one extra line of vertical space.
+const LINE_HEIGHT_REM = 1.75;
+
+function countBlankLinesBefore(sourceLines: string[], startLine: number): number {
+  let count = 0;
+  for (let i = startLine - 2; i >= 0; i--) {
+    if (sourceLines[i].trim() === "") count++;
+    else break;
+  }
+  return count;
+}
+
+function Spacer({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <div aria-hidden style={{ height: `${count * LINE_HEIGHT_REM}rem` }} />
+  );
+}
+
+type NodeWithPosition = {
+  position?: { start?: { line?: number } };
+};
+
+// A block only gets a spacer when it's directly under the document root.
+// A node nested inside another block (a blockquote's paragraph, a list
+// item's content) would otherwise compute the same "blank lines before
+// me" as its container and double the gap. Each spacer block marks its
+// own children as nested before rendering them.
+const IsTopLevelContext = createContext(true);
+
+function createSpacerBlock<Tag extends keyof React.JSX.IntrinsicElements>(
+  tag: Tag,
+  sourceLines: string[],
+) {
+  const Tag = tag;
+  return function SpacerBlock({
+    node,
+    ...rest
+  }: React.JSX.IntrinsicElements[Tag] & { node?: NodeWithPosition }) {
+    const isTopLevel = useContext(IsTopLevelContext);
+    const startLine = node?.position?.start?.line;
+    const blanks =
+      isTopLevel && startLine !== undefined
+        ? countBlankLinesBefore(sourceLines, startLine)
+        : 0;
+    return (
+      <IsTopLevelContext.Provider value={false}>
+        <Spacer count={blanks} />
+        {createElement(Tag, rest as React.ComponentProps<Tag>)}
+      </IsTopLevelContext.Provider>
+    );
+  };
+}
+
+function buildSpacerComponents(sourceLines: string[]): Components {
+  return {
+    h1: createSpacerBlock("h1", sourceLines),
+    h2: createSpacerBlock("h2", sourceLines),
+    h3: createSpacerBlock("h3", sourceLines),
+    h4: createSpacerBlock("h4", sourceLines),
+    h5: createSpacerBlock("h5", sourceLines),
+    h6: createSpacerBlock("h6", sourceLines),
+    p: createSpacerBlock("p", sourceLines),
+    ul: createSpacerBlock("ul", sourceLines),
+    ol: createSpacerBlock("ol", sourceLines),
+    blockquote: createSpacerBlock("blockquote", sourceLines),
+    table: createSpacerBlock("table", sourceLines),
+    pre: createSpacerBlock("pre", sourceLines),
+    hr: createSpacerBlock("hr", sourceLines),
+  };
+}
 
 const INITIAL_MARKDOWN = `# Hello, Markdown
 
@@ -40,6 +122,11 @@ export default function MarkdownPreviewer({
   const [markdown, setMarkdown] = useState(INITIAL_MARKDOWN);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingCursor = useRef<number | null>(null);
+
+  const previewComponents = useMemo(
+    () => buildSpacerComponents(markdown.split("\n")),
+    [markdown],
+  );
 
   useLayoutEffect(() => {
     if (pendingCursor.current === null || !textareaRef.current) return;
@@ -86,7 +173,10 @@ export default function MarkdownPreviewer({
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { value, selectionStart } = e.target;
 
-    if (!autoSeparateLists) {
+    // Only auto-insert on growth. Running this on a deletion (backspace,
+    // delete, cut) would re-insert the very blank line the user just
+    // removed, undoing their edit.
+    if (!autoSeparateLists || value.length <= markdown.length) {
       setMarkdown(value);
       return;
     }
@@ -143,10 +233,11 @@ export default function MarkdownPreviewer({
           Preview
         </h2>
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          <article className="prose prose-zinc max-w-none dark:prose-invert">
+          <article className="prose prose-zinc max-w-none [&_p]:whitespace-pre-line prose-headings:my-0 prose-p:my-0 prose-blockquote:my-0 prose-ul:my-0 prose-ol:my-0 prose-li:my-0 prose-table:my-0 prose-pre:my-0 prose-hr:my-0 dark:prose-invert">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
+              components={previewComponents}
             >
               {markdown}
             </ReactMarkdown>
